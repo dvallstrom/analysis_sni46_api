@@ -1,0 +1,72 @@
+---
+title: "Testing Statistics Swedens API with short SNI 46 Analysis"
+author: "Daniel Vallström"
+date: "2023-01-14"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+
+```{r libraries, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(hrbrthemes)
+library(PxWebApiData)
+```
+
+## Data
+
+Gather data using the API and pivot the results to a neat tibble.
+
+```{r data}
+sni46 <- ApiData("https://api.scb.se/OV0104/v1/doris/en/ssd/NV/NV0109/NV0109L/BasfaktaFEngs07/", 
+        SNI2007 = "46",
+        Tid = c("2007","2008","2009","2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020"),
+        ContentsCode = c("NV0109E2", "NV0109E5")
+        )
+
+sni46t <- sni46[2]$dataset |> 
+  pivot_wider(
+    names_from = ContentsCode,
+    values_from = value) |> 
+  rename(countEnterprises = NV0109E2, netTurnover = NV0109E5) |> 
+  mutate(Tid=parse_number(Tid)) |> 
+  as_tibble()
+```
+
+## Create a graph
+
+Using ggplot2 and the ipsum theme from hrbrthemes.
+
+```{r plot, warning=FALSE, message=FALSE }
+#crete coefficient to scale right side axis.
+coeff <- 25 
+
+sni46t |>
+  ggplot(aes(x=Tid))+
+    geom_line(aes(y=netTurnover), linewidth=1, color="royalblue")+
+    geom_line(aes(x=Tid, y=countEnterprises * coeff), linewidth=1, color="forestgreen")+
+    scale_x_continuous(breaks = seq(2007,2020,by=2), name="Year")+
+    scale_y_continuous(
+      
+      name = "Net Turnover (SEK Millions)",
+      
+      sec.axis = sec_axis(~./coeff, name = "Number of enterprises")
+      
+    ) +
+    theme_ipsum() + 
+    theme(
+      plot.title = element_text(size=12),
+      axis.title.y = element_text(color = "royalblue", size=10),
+      axis.title.y.right = element_text(color = "forestgreen", size=10)
+    )+
+    labs(title = "Net turnover and number of enterprises in SNI 46 (2007-2020) ", subtitle = "Source: Statistics Sweden")
+
+
+```
+
